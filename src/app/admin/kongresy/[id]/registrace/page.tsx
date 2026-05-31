@@ -2,6 +2,10 @@ import { createServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import StavRegistrace from './StavRegistrace'
+import type { Database } from '@/types/database'
+
+type RegistraceRow = Database['public']['Tables']['registrace']['Row']
+type KongresRow = Database['public']['Tables']['kongresy']['Row']
 
 interface Props {
   params: Promise<{ id: string }>
@@ -14,24 +18,27 @@ export default async function RegistracePage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/admin/login')
 
-  const { data: kongres } = await supabase
+  const { data: kongresData } = await supabase
     .from('kongresy')
     .select('id, nazev, datum_zacatek')
     .eq('id', id)
     .single()
 
+  const kongres = kongresData as Pick<KongresRow, 'id' | 'nazev' | 'datum_zacatek'> | null
   if (!kongres) redirect('/admin')
 
-  const { data: registrace } = await supabase
+  const { data: registraceData } = await supabase
     .from('registrace')
     .select('*')
     .eq('kongres_id', id)
     .order('created_at', { ascending: false })
 
+  const registrace = (registraceData ?? []) as RegistraceRow[]
+
   const pocty = {
-    cekajici: registrace?.filter(r => r.stav === 'cekajici').length ?? 0,
-    potvrzena: registrace?.filter(r => r.stav === 'potvrzena').length ?? 0,
-    zrusena: registrace?.filter(r => r.stav === 'zrusena').length ?? 0,
+    cekajici: registrace.filter(r => r.stav === 'cekajici').length,
+    potvrzena: registrace.filter(r => r.stav === 'potvrzena').length,
+    zrusena: registrace.filter(r => r.stav === 'zrusena').length,
   }
 
   return (
@@ -50,7 +57,6 @@ export default async function RegistracePage({ params }: Props) {
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* Souhrn */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
             <div className="text-2xl font-bold text-yellow-600">{pocty.cekajici}</div>
@@ -66,8 +72,7 @@ export default async function RegistracePage({ params }: Props) {
           </div>
         </div>
 
-        {/* Tabulka */}
-        {(!registrace || registrace.length === 0) ? (
+        {registrace.length === 0 ? (
           <p className="text-gray-500">Zatím žádné registrace.</p>
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -85,9 +90,7 @@ export default async function RegistracePage({ params }: Props) {
               <tbody className="divide-y divide-gray-100">
                 {registrace.map((r) => (
                   <tr key={r.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {r.jmeno} {r.prijmeni}
-                    </td>
+                    <td className="px-4 py-3 font-medium text-gray-900">{r.jmeno} {r.prijmeni}</td>
                     <td className="px-4 py-3 text-gray-600">{r.email}</td>
                     <td className="px-4 py-3 text-gray-500">{r.organizace ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-400 text-xs">
