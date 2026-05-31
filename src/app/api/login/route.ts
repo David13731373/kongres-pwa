@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
   const { email, password } = body
 
-  const cookiesToSet: { name: string; value: string; options: CookieOptions }[] = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cookiesToSet: { name: string; value: string; options?: any }[] = []
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,8 +16,9 @@ export async function POST(request: NextRequest) {
         getAll() {
           return request.cookies.getAll()
         },
-        setAll(cookies) {
-          cookies.forEach(c => cookiesToSet.push(c))
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setAll(cookies: any[]) {
+          cookies.forEach((c: any) => cookiesToSet.push(c))
         },
       },
     }
@@ -29,8 +31,9 @@ export async function POST(request: NextRequest) {
   }
 
   const res = NextResponse.json({ success: true, user: data.user.email })
-  cookiesToSet.forEach(({ name, value, options }) =>
-    res.cookies.set(name, value, options as Parameters<typeof res.cookies.set>[2])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  cookiesToSet.forEach(({ name, value, options }: any) =>
+    res.cookies.set(name, value, options)
   )
 
   return res
