@@ -1,11 +1,35 @@
-import { loginAction } from './actions'
+'use client'
 
-interface Props {
-  searchParams: Promise<{ error?: string }>
-}
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
-export default async function AdminLoginPage({ searchParams }: Props) {
-  const { error } = await searchParams
+export default function AdminLoginPage() {
+  const router = useRouter()
+  const [email, setEmail] = useState('')
+  const [heslo, setHeslo] = useState('')
+  const [chyba, setChyba] = useState<string | null>(null)
+  const [nacita, setNacita] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setNacita(true)
+    setChyba(null)
+
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: heslo }),
+    })
+
+    if (res.ok) {
+      router.push('/admin')
+      router.refresh()
+    } else {
+      const data = await res.json()
+      setChyba(data.error ?? 'Přihlášení selhalo.')
+      setNacita(false)
+    }
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -13,16 +37,17 @@ export default async function AdminLoginPage({ searchParams }: Props) {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Admin přihlášení</h1>
 
-          <form action={loginAction} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">
                 Email
               </label>
               <input
                 id="email"
-                name="email"
                 type="email"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -33,22 +58,22 @@ export default async function AdminLoginPage({ searchParams }: Props) {
               </label>
               <input
                 id="heslo"
-                name="heslo"
                 type="password"
                 required
+                value={heslo}
+                onChange={(e) => setHeslo(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
-            {error && (
-              <p className="text-sm text-red-600">Chyba: {decodeURIComponent(error)}</p>
-            )}
+            {chyba && <p className="text-sm text-red-600">{chyba}</p>}
 
             <button
               type="submit"
-              className="w-full rounded-lg bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700 transition-colors"
+              disabled={nacita}
+              className="w-full rounded-lg bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
-              Přihlásit se
+              {nacita ? 'Přihlašuji...' : 'Přihlásit se'}
             </button>
           </form>
         </div>
