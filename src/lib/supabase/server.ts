@@ -2,6 +2,8 @@ import { createServerClient as createSupabaseServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/types/database'
 
+type CookieItem = { name: string; value: string; options?: Record<string, unknown> }
+
 export async function createServerClient() {
   const cookieStore = await cookies()
 
@@ -13,10 +15,11 @@ export async function createServerClient() {
         getAll() {
           return cookieStore.getAll()
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: CookieItem[]) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              cookieStore.set(name, value, options as any)
             )
           } catch {}
         },
@@ -25,7 +28,6 @@ export async function createServerClient() {
   )
 }
 
-/** Service role klient — používat jen v API routes, nikdy na klientu */
 export async function createAdminClient() {
   const cookieStore = await cookies()
 
@@ -37,7 +39,7 @@ export async function createAdminClient() {
         getAll() {
           return cookieStore.getAll()
         },
-        setAll() {},
+        setAll(_cookiesToSet: CookieItem[]) {},
       },
     }
   )
