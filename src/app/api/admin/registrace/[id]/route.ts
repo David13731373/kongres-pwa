@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import type { Database } from '@/types/database'
+
+type Stav = Database['public']['Tables']['registrace']['Row']['stav']
 
 export async function PATCH(
   request: NextRequest,
@@ -16,13 +19,16 @@ export async function PATCH(
   const body = await request.json()
   const { stav } = body
 
-  if (!['potvrzena', 'zrusena', 'cekajici'].includes(stav)) {
+  const platneStavy: Stav[] = ['potvrzena', 'zrusena', 'cekajici']
+  if (!platneStavy.includes(stav)) {
     return NextResponse.json({ error: 'Neplatny stav' }, { status: 400 })
   }
 
+  const novyStav: Stav = stav as Stav
+
   const { error } = await supabase
     .from('registrace')
-    .update({ stav: stav as 'cekajici' | 'potvrzena' | 'zrusena' })
+    .update({ stav: novyStav })
     .eq('id', id)
 
   if (error) {
