@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
   const { email, password } = body
 
-  const cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[] = []
+  const cookiesToSet: { name: string; value: string; options: CookieOptions }[] = []
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,8 +29,9 @@ export async function POST(request: NextRequest) {
   }
 
   const res = NextResponse.json({ success: true, user: data.user.email })
-  const cookieOpts = { httpOnly: true, secure: true, sameSite: 'lax' as const, path: '/', maxAge: 60 * 60 * 24 * 7 }
-  cookiesToSet.forEach(({ name, value }) => res.cookies.set(name, value, cookieOpts))
+  cookiesToSet.forEach(({ name, value, options }) =>
+    res.cookies.set(name, value, options as Parameters<typeof res.cookies.set>[2])
+  )
 
   return res
 }
