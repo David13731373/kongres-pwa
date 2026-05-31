@@ -2,6 +2,13 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
+  // Explicitně přeskočit API routes a statické soubory
+  if (pathname.startsWith('/api/') || pathname.startsWith('/_next/') || pathname.includes('.')) {
+    return NextResponse.next()
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -27,10 +34,9 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
-  const isLoginPage = request.nextUrl.pathname === '/admin/login'
+  const isLoginPage = pathname === '/admin/login'
 
-  if (isAdminRoute && !isLoginPage && !user) {
+  if (!isLoginPage && !user) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/admin/login'
     return NextResponse.redirect(loginUrl)
