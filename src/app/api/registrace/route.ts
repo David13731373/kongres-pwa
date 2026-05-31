@@ -27,8 +27,6 @@ export async function POST(request: NextRequest) {
       .eq('id', parsed.data.kongres_id)
       .single()
 
-    console.log('DEBUG kongres:', kongres, 'error:', kongresError?.message)
-
     if (kongresError) {
       return NextResponse.json({ error: 'Kongres error: ' + kongresError.message }, { status: 404 })
     }

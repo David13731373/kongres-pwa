@@ -49,8 +49,8 @@ export default function RegistraceFormular({ kongresId }: Props) {
         setChybova(json.error ?? 'Registrace se nezdařila.')
         setStav('chyba')
       }
-    } catch (err: any) {
-      setChybova('Chyba: ' + (err?.message ?? JSON.stringify(err)))
+    } catch {
+      setChybova('Registrace se nezdařila. Zkuste to prosím znovu.')
       setStav('chyba')
     }
   }
