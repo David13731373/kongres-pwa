@@ -2,6 +2,11 @@ import { createServerClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import RegistraceFormular from '@/components/kongres/RegistraceFormular'
+import type { Database } from '@/types/database'
+
+type KongresRow = Database['public']['Tables']['kongresy']['Row']
+type ProgramRow = Database['public']['Tables']['program']['Row']
+type KongresDetail = KongresRow & { program: ProgramRow[] }
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -16,21 +21,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .eq('slug', slug)
     .single()
 
-  return { title: data?.nazev ?? 'Kongres' }
+  const kongres = data as Pick<KongresRow, 'nazev'> | null
+  return { title: kongres?.nazev ?? 'Kongres' }
 }
 
 export default async function KongresDetailPage({ params }: Props) {
   const { slug } = await params
   const supabase = await createServerClient()
 
-  const { data: kongres, error } = await supabase
+  const { data, error } = await supabase
     .from('kongresy')
     .select('*, program(*)')
     .eq('slug', slug)
     .eq('aktivni', true)
     .single()
 
-  if (error || !kongres) notFound()
+  if (error || !data) notFound()
+
+  const kongres = data as unknown as KongresDetail
 
   return (
     <main className="max-w-3xl mx-auto p-8">
@@ -50,12 +58,11 @@ export default async function KongresDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* Program */}
       {kongres.program && kongres.program.length > 0 && (
         <section className="mb-10">
           <h2 className="text-xl font-semibold mb-4">Program</h2>
           <div className="space-y-3">
-            {kongres.program.map((item: any) => (
+            {kongres.program.map((item) => (
               <div key={item.id} className="flex gap-4 border-l-4 border-primary-500 pl-4 py-1">
                 <span className="text-gray-400 w-24 shrink-0">{item.cas_od}</span>
                 <div>
@@ -68,7 +75,6 @@ export default async function KongresDetailPage({ params }: Props) {
         </section>
       )}
 
-      {/* Registrace */}
       <section>
         <h2 className="text-xl font-semibold mb-4">Registrace</h2>
         <RegistraceFormular kongresId={kongres.id} kongresSlug={slug} />
