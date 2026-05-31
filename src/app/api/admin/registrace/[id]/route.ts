@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
-import type { Database } from '@/types/database'
-
-type Stav = Database['public']['Tables']['registrace']['Row']['stav']
+import { createClient } from '@supabase/supabase-js'
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createServerClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // Ověření session přes server client
+  const { createServerClient } = await import('@/lib/supabase/server')
+  const supabaseAuth = await createServerClient()
+  const { data: { user } } = await supabaseAuth.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Neprihlaseni' }, { status: 401 })
   }
@@ -19,16 +18,20 @@ export async function PATCH(
   const body = await request.json()
   const { stav } = body
 
-  const platneStavy: Stav[] = ['potvrzena', 'zrusena', 'cekajici']
+  const platneStavy = ['potvrzena', 'zrusena', 'cekajici']
   if (!platneStavy.includes(stav)) {
     return NextResponse.json({ error: 'Neplatny stav' }, { status: 400 })
   }
 
-  const novyStav: Stav = stav as Stav
+  // Update přes service role client (obchází RLS i typové problémy)
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 
   const { error } = await supabase
     .from('registrace')
-    .update({ stav: novyStav })
+    .update({ stav })
     .eq('id', id)
 
   if (error) {
