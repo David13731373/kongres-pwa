@@ -44,9 +44,9 @@ export default async function RegistracePage({ params }: Props) {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center gap-3">
+        <div className="max-w-7xl mx-auto flex items-center gap-3">
           <Link href="/admin" className="text-gray-400 hover:text-gray-600 text-sm">
-            ← Zpět
+            <- Zpet
           </Link>
           <span className="text-gray-300">/</span>
           <h1 className="text-xl font-bold text-gray-900">{kongres.nazev}</h1>
@@ -56,11 +56,11 @@ export default async function RegistracePage({ params }: Props) {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-8">
         <div className="grid grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
             <div className="text-2xl font-bold text-yellow-600">{pocty.cekajici}</div>
-            <div className="text-sm text-gray-500 mt-1">Čekající</div>
+            <div className="text-sm text-gray-500 mt-1">Cekajici</div>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
             <div className="text-2xl font-bold text-green-600">{pocty.potvrzena}</div>
@@ -68,21 +68,22 @@ export default async function RegistracePage({ params }: Props) {
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
             <div className="text-2xl font-bold text-red-500">{pocty.zrusena}</div>
-            <div className="text-sm text-gray-500 mt-1">Zrušeno</div>
+            <div className="text-sm text-gray-500 mt-1">Zruseno</div>
           </div>
         </div>
 
         {registrace.length === 0 ? (
-          <p className="text-gray-500">Zatím žádné registrace.</p>
+          <p className="text-gray-500">Zatim zadne registrace.</p>
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Jméno</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Jmeno</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Kontakt</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Organizace</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Přihlášeno</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Poznamka</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Prihlaseno</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Stav</th>
                   <th className="px-4 py-3"></th>
                 </tr>
@@ -90,9 +91,25 @@ export default async function RegistracePage({ params }: Props) {
               <tbody className="divide-y divide-gray-100">
                 {registrace.map((r) => (
                   <tr key={r.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{r.jmeno} {r.prijmeni}</td>
-                    <td className="px-4 py-3 text-gray-600">{r.email}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      {r.jmeno} {r.prijmeni}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      <div>{r.email}</div>
+                      {r.telefon && (
+                        <div className="text-gray-400 text-xs mt-0.5">{r.telefon}</div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-500">{r.organizace ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 max-w-xs">
+                      {r.poznamka ? (
+                        <span className="line-clamp-2 text-xs" title={r.poznamka}>
+                          {r.poznamka}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-400 text-xs">
                       {new Date(r.created_at).toLocaleString('cs-CZ', {
                         day: '2-digit', month: '2-digit', year: 'numeric',
@@ -123,9 +140,9 @@ function StavBadge({ stav }: { stav: string }) {
     zrusena: 'bg-red-100 text-red-600',
   }
   const labels: Record<string, string> = {
-    cekajici: 'Čekající',
+    cekajici: 'Cekajici',
     potvrzena: 'Potvrzena',
-    zrusena: 'Zrušena',
+    zrusena: 'Zrusena',
   }
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${map[stav] ?? 'bg-gray-100 text-gray-500'}`}>
