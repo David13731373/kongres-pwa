@@ -22,7 +22,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Anon klient pro cteni kongresu (respektuje RLS)
     const supabaseAnon = createClient(url, anonKey)
 
     const { data: kongres, error: kongresError } = await supabaseAnon
@@ -32,14 +31,13 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (kongresError) {
-      return NextResponse.json({ error: 'Kongres error: ' + kongresError.message }, { status: 404 })
+      return NextResponse.json({ error: 'Kongres nenalezen.' }, { status: 404 })
     }
 
     if (!kongres.registrace_otevrena) {
-      return NextResponse.json({ error: 'Registrace jsou uzavreny' }, { status: 400 })
+      return NextResponse.json({ error: 'Registrace na tento kongres jsou uzavreny.' }, { status: 400 })
     }
 
-    // Service role klient pro INSERT (server-side, bezpecny)
     const supabaseAdmin = createClient(url, serviceKey)
 
     const { data: registrace, error: regError } = await supabaseAdmin
@@ -58,13 +56,20 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (regError) {
-      return NextResponse.json({ error: 'Insert error: ' + regError.message }, { status: 500 })
+      // Duplicitni email na tento kongres
+      if (regError.code === '23505') {
+        return NextResponse.json(
+          { error: 'Na tento kongres jste jiz zaregistrovani. Kazdy ucastnik se muze registrovat pouze jednou.' },
+          { status: 409 }
+        )
+      }
+      return NextResponse.json({ error: 'Registraci se nepodarilo ulozit. Zkuste to prosim znovu.' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, id: registrace.id }, { status: 201 })
 
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    return NextResponse.json({ error: 'Crash: ' + message }, { status: 500 })
+    return NextResponse.json({ error: 'Neocekavana chyba: ' + message }, { status: 500 })
   }
 }
