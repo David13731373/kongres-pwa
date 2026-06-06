@@ -8,20 +8,24 @@ export async function POST(request: NextRequest) {
 
     const parsed = registraceSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Neplatná data' }, { status: 400 })
+      return NextResponse.json({ error: 'Neplatna data' }, { status: 400 })
     }
 
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-    if (!url || !key) {
-      return NextResponse.json({ error: 'Chybí Supabase konfigurace', url: !!url, key: !!key }, { status: 500 })
+    if (!url || !anonKey || !serviceKey) {
+      return NextResponse.json(
+        { error: 'Chybi Supabase konfigurace', url: !!url, anonKey: !!anonKey, serviceKey: !!serviceKey },
+        { status: 500 }
+      )
     }
 
-    const supabase = createClient(url, key)
+    // Anon klient pro cteni kongresu (respektuje RLS)
+    const supabaseAnon = createClient(url, anonKey)
 
-
-    const { data: kongres, error: kongresError } = await supabase
+    const { data: kongres, error: kongresError } = await supabaseAnon
       .from('kongresy')
       .select('id, nazev, registrace_otevrena')
       .eq('id', parsed.data.kongres_id)
@@ -32,10 +36,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (!kongres.registrace_otevrena) {
-      return NextResponse.json({ error: 'Registrace jsou uzavřeny' }, { status: 400 })
+      return NextResponse.json({ error: 'Registrace jsou uzavreny' }, { status: 400 })
     }
 
-    const { data: registrace, error: regError } = await supabase
+    // Service role klient pro INSERT (server-side, bezpecny)
+    const supabaseAdmin = createClient(url, serviceKey)
+
+    const { data: registrace, error: regError } = await supabaseAdmin
       .from('registrace')
       .insert({
         kongres_id: parsed.data.kongres_id,
@@ -56,7 +63,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, id: registrace.id }, { status: 201 })
 
-  } catch (err: any) {
-    return NextResponse.json({ error: 'Crash: ' + err?.message }, { status: 500 })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return NextResponse.json({ error: 'Crash: ' + message }, { status: 500 })
   }
 }
