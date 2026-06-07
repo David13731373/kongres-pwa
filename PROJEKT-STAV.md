@@ -4,76 +4,86 @@ Naposledy aktualizováno: 2026-05-31
 
 ---
 
-## Co je hotovo
+## Co je hotovo a funguje (ověřeno v produkci)
 
 ### Infrastruktura
-- ✅ Next.js 15 (App Router, Turbopack) — běží lokálně na `localhost:3000`
+- ✅ Next.js (App Router) — deploy na Vercel: https://kongres-pwa.vercel.app
 - ✅ Supabase projekt "Kongresy" — ref: `rztbxaymitqblatiolbj`
-- ✅ `.env.local` nakonfigurován (není v gitu)
 - ✅ GitHub repo: https://github.com/David13731373/kongres-pwa
-- ✅ next-pwa odstraněno (nekompatibilní s Next.js 15 + Turbopack)
+- ✅ Vercel buildí automaticky při každém push na `main`
+- ✅ `@supabase/ssr` pinnuto na `0.10.3` (jinak Vercel buildil s `0.3.0` = nekompatibilní cookie formát)
 
-### Databáze (Supabase)
-- ✅ Tabulka `kongresy` (id, nazev, slug, datum_zacatek, datum_konec, misto, popis, aktivni, registrace_otevrena)
-- ✅ Tabulka `program` (id, kongres_id, cas_od, nazev, priznak)
-- ✅ Tabulka `registrace` (id, kongres_id, jmeno, prijmeni, email, telefon, organizace, poznamka, stav, vytvoreno)
-- ✅ Testovací kongres vložen do DB a zobrazuje se
-- ✅ Registrační formulář funguje — ukládá do DB (stav: `cekajici`)
+### Veřejné stránky
+- ✅ `/` — úvodní stránka s tlačítky "Zobrazit kongresy" a "Admin"
+- ✅ `/kongresy` — seznam aktivních kongresů (SSR ze Supabase)
+- ✅ `/kongresy/kardiologie-2026` — detail kongresu + registrační formulář
 
-### Funkční stránky
-- ✅ `/kongresy` — seznam aktivních kongresů
-- ✅ `/kongresy/[slug]` — detail kongresu + program + registrační formulář
-- ✅ `/api/registrace` — POST endpoint pro registraci
+### Admin panel
+- ✅ `/admin/login` — přihlašovací stránka (email + heslo)
+- ✅ `/admin` — dashboard se seznamem kongresů
+- ✅ `/admin/kongresy/{uuid}/registrace` — seznam registrací s tlačítky Potvrdit / Zrušit
+- ✅ Middleware chrání `/admin/*` — nepřihlášený uživatel je přesměrován na login
+- ✅ Admin účet: `dvhv@seznam.cz` (heslo v Supabase Auth)
+
+### API endpointy
+- ✅ `POST /api/login` — přihlášení, nastavení session cookies přes `@supabase/ssr`
+- ✅ `POST /api/registrace` — vytvoření registrace (ukládá do DB se stavem `cekajici`)
+- ✅ `GET /api/debug-login` — diagnostický endpoint (ponechat pro debug, smazat před produkcí)
+- ✅ `GET /api/test-post` — diagnostický endpoint (smazat před produkcí)
+
+### Databáze
+- ✅ Tabulka `kongresy` — funkční, testovací data vložena
+- ✅ Tabulka `program` — existuje, ale prázdná (žádný program v DB)
+- ✅ Tabulka `registrace` — funkční, testovací záznamy existují
+- ✅ RLS zapnuté na všech tabulkách
 
 ---
 
-## Technické dluhy (nutno vyřešit před nasazením)
+## ❌ Aktuální blokující bug (vyřešit jako první příště)
 
-### Kritické
-- ⚠️ **RLS je vypnuté na tabulce `registrace`** — kdokoli může číst i mazat záznamy
-  - Vypnuto příkazem: `alter table public.registrace disable row level security`
-  - Správné řešení: nastavit RLS politiky až po implementaci admin autentizace
+### RLS blokuje veřejnou registraci
+**Symptom:** Formulář na `/kongresy/kardiologie-2026` vrátí chybu:
+> `Insert error: new row violates row-level security policy for table "registrace"`
 
-### Méně kritické
-- 🧹 Debug `console.log` v `src/app/api/registrace/route.ts` (řádek 30) — smazat před deployem
-- 🧹 V `RegistraceFormular.tsx` catch blok zobrazuje technický error message místo přívětivé hlášky
+**Příčina:** RLS politika "Kdokoli může vytvořit registraci" (`with check (true)`) je v migraci, ale v databázi pravděpodobně chybí nebo byla smazána. Někdy v historii bylo RLS na `registrace` vypnuto (`alter table public.registrace disable row level security`) a pak znovu zapnuto bez politiky.
+
+**Jak opravit:**
+Spustit v Supabase SQL editoru (https://supabase.com/dashboard → projekt → SQL Editor):
+```sql
+-- Zkontroluj existující politiky
+select * from pg_policies where tablename = 'registrace';
+
+-- Pokud chybí INSERT politika, přidej ji:
+create policy "Kdokoli může vytvořit registraci"
+  on public.registrace for insert
+  with check (true);
+
+-- Pokud je RLS vypnuté, zapni ho:
+alter table public.registrace enable row level security;
+```
 
 ---
 
-## Co zbývá (prioritní pořadí)
+## Co zbývá dokončit (pořadí priorit)
 
-### 1. Admin panel (největší blok)
-Správa kongresů a registrací přes přihlášené rozhraní.
+### 1. Opravit RLS (viz výše — blokující bug)
 
-**Subroute**: `/admin/*`
+### 2. Emaily přes Resend
+- `RESEND_API_KEY` přidat do Vercel Environment Variables
+- Implementovat odeslání emailu po úspěšné registraci (soubor `src/lib/email.ts` existuje, ale pravděpodobně není napojený)
+- Šablona: česky, jméno kongresu, jméno účastníka, potvrzení
+- Zvážit email i při změně stavu (potvrzena / zrušena) z adminu
 
-**Co implementovat:**
-- [ ] Přihlašovací stránka (`/admin/login`) — Supabase Auth (email + heslo)
-- [ ] Dashboard (`/admin`) — přehled kongresů
-- [ ] Seznam registrací pro daný kongres (`/admin/kongresy/[id]/registrace`)
-- [ ] Změna stavu registrace: `cekajici` → `potvrzena` / `zrusena`
-- [ ] Middleware pro ochranu `/admin/*` routes
-- [ ] Admin uživatel vytvořen v Supabase Auth
+### 3. Cleanup debug endpointů
+- Smazat `src/app/api/debug-login/route.ts` (obsahuje hardcoded heslo!)
+- Smazat `src/app/api/test-post/route.ts`
 
-**Po implementaci admin auth:**
-- [ ] Nastavit RLS politiky na `registrace`:
-  - anonymous INSERT povolený (registrace bez přihlášení)
-  - SELECT/UPDATE/DELETE pouze pro authenticated (admin)
+### 4. Program kongresu
+- Tabulka `program` je prázdná — vložit testovací data nebo přidat admin UI pro správu programu
+- Stránka detailu kongresu program nezobrazuje (nebo zobrazuje prázdný stav)
 
-### 2. Emaily (Resend)
-- [ ] Potvrdit registraci emailem na adresu uchazeče
-- [ ] `RESEND_API_KEY` do `.env.local` a Vercel env vars
-- [ ] Šablona emailu (česky, jméno kongresu, ID registrace)
-
-### 3. Nasazení (Vercel)
-- [ ] Vytvořit projekt na https://vercel.com
-- [ ] Napojit GitHub repo `David13731373/kongres-pwa`
-- [ ] Přidat env vars (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY)
-- [ ] Vercel automaticky buildí při každém push na `main`
-
-### 4. Cleanup před deployem
-- [ ] Smazat debug `console.log` z `route.ts`
-- [ ] Opravit error hlášku v `RegistraceFormular.tsx`
+### 5. Admin UI — správa stavů registrace
+- Tlačítka Potvrdit / Zrušit jsou na stránce, ale ověřit že fungují správně
 
 ---
 
@@ -81,35 +91,32 @@ Správa kongresů a registrací přes přihlášené rozhraní.
 
 | Soubor | Popis |
 |--------|-------|
-| `src/app/kongresy/page.tsx` | Seznam kongresů (SSR, Supabase) |
+| `src/app/page.tsx` | Úvodní stránka |
+| `src/app/kongresy/page.tsx` | Seznam kongresů |
 | `src/app/kongresy/[slug]/page.tsx` | Detail kongresu + formulář |
-| `src/app/api/registrace/route.ts` | POST endpoint pro registraci |
-| `src/components/kongres/RegistraceFormular.tsx` | React formulář (client component) |
-| `src/lib/supabase/server.ts` | Supabase server klient (async cookies) |
-| `src/lib/validace.ts` | Zod schéma pro registraci |
-| `src/types/database.ts` | Typy generované ze Supabase |
-| `supabase/migrations/001_initial.sql` | SQL migrace (tabulky + RLS) |
-| `.env.local` | Env vars (není v gitu!) |
+| `src/app/admin/login/page.tsx` | Login stránka (client component, volá /api/login) |
+| `src/app/admin/page.tsx` | Admin dashboard |
+| `src/app/admin/kongresy/[id]/registrace/page.tsx` | Seznam registrací |
+| `src/app/api/login/route.ts` | Login API (SSR cookies via @supabase/ssr) |
+| `src/app/api/registrace/route.ts` | Registrační API |
+| `src/lib/supabase/server.ts` | Supabase server klient (createServerClient) |
+| `middleware.ts` | Ochrana /admin/* routes |
+| `supabase/migrations/001_initial.sql` | SQL schéma + RLS politiky |
 
 ---
 
-## Poznámky k prostředí
+## Technické poznámky
 
-- **Node**: projekt funguje s Node 18+
-- **Supabase klíče**: používat **legacy JWT klíče** (ne nový `sb_publishable_` formát — není kompatibilní s `supabase-js`)
-  - Legacy klíče najdeš v: Supabase dashboard → Settings → API → "Legacy API Keys"
-- **Next.js 15 breaking changes** (již vyřešeno v kódu):
-  - `cookies()` je async — musíš `await cookies()`
-  - `params` v page.tsx je `Promise<{slug}>` — musíš `await params`
-- **Service role key**: NIKDY nesdílet v chatu, nepushovat do gitu
-
----
+- **Supabase klíče**: používat **legacy JWT klíče** (ne `sb_publishable_` formát)
+  - Najdeš v: Supabase dashboard → Settings → API → "Legacy API Keys"
+- **Admin UUID kongresu**: `800446eb-dd75-4482-8ad7-0a37fbaac8d9`
+- **`@supabase/ssr@0.3.0`** = starý cookie formát, nefunguje s `getUser()` v Server Components → musí být `0.10.3`
+- **Debug-login heslo** je uloženo v `src/app/api/debug-login/route.ts` — smazat!
 
 ## Jak spustit lokálně
 
 ```bash
 cd C:\Users\dvhv\Documents\Projekty\Ivanatour\kongres-pwa-fixed\kongres-pwa
 npm run dev
+# App běží na: http://localhost:3000
 ```
-
-App běží na: http://localhost:3000
