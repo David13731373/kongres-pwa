@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { poslatPotvrzeniUcasti, poslatZruseniRegistrace } from '@/lib/email'
 
 export async function PATCH(
   request: NextRequest,
@@ -7,7 +8,6 @@ export async function PATCH(
 ) {
   const { id } = await params
 
-  // Ověření session přes server client
   const { createServerClient } = await import('@/lib/supabase/server')
   const supabaseAuth = await createServerClient()
   const { data: { user } } = await supabaseAuth.auth.getUser()
@@ -23,11 +23,20 @@ export async function PATCH(
     return NextResponse.json({ error: 'Neplatny stav' }, { status: 400 })
   }
 
-  // Update přes service role client (obchází RLS i typové problémy)
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+
+  const { data: registrace, error: fetchError } = await supabase
+    .from('registrace')
+    .select('id, jmeno, prijmeni, email, kongres_id, kongresy(nazev)')
+    .eq('id', id)
+    .single()
+
+  if (fetchError || !registrace) {
+    return NextResponse.json({ error: 'Registrace nenalezena' }, { status: 404 })
+  }
 
   const { error } = await supabase
     .from('registrace')
@@ -36,6 +45,21 @@ export async function PATCH(
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  const kongresNazev = (registrace.kongresy as { nazev: string } | null)?.nazev ?? 'kongres'
+  const emailParams = {
+    email: registrace.email,
+    jmeno: registrace.jmeno,
+    prijmeni: registrace.prijmeni,
+    kongresNazev,
+    registraceId: registrace.id,
+  }
+
+  if (stav === 'potvrzena') {
+    poslatPotvrzeniUcasti(emailParams).catch((err) => console.error('Email chyba (potvrzeni):', err))
+  } else if (stav === 'zrusena') {
+    poslatZruseniRegistrace(emailParams).catch((err) => console.error('Email chyba (zruseni):', err))
   }
 
   return NextResponse.json({ success: true })

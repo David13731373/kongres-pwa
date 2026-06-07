@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { registraceSchema } from '@/lib/validace'
+import { poslatPotvrzeniPrijeti } from '@/lib/email'
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,7 +57,6 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (regError) {
-      // Duplicitni email na tento kongres
       if (regError.code === '23505') {
         return NextResponse.json(
           { error: 'Na tento kongres jste jiz zaregistrovani. Kazdy ucastnik se muze registrovat pouze jednou.' },
@@ -65,6 +65,14 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json({ error: 'Registraci se nepodarilo ulozit. Zkuste to prosim znovu.' }, { status: 500 })
     }
+
+    poslatPotvrzeniPrijeti({
+      email: registrace.email,
+      jmeno: registrace.jmeno,
+      prijmeni: registrace.prijmeni,
+      kongresNazev: kongres.nazev,
+      registraceId: registrace.id,
+    }).catch((err) => console.error('Email fire-and-forget chyba:', err))
 
     return NextResponse.json({ success: true, id: registrace.id }, { status: 201 })
 
