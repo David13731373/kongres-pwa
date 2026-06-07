@@ -41,31 +41,68 @@ export async function POST(request: NextRequest) {
 
     const supabaseAdmin = createClient(url, serviceKey)
 
-    const { data: registrace, error: regError } = await supabaseAdmin
+    // Zkontroluj zda uz existuje registrace se stejnym emailem
+    const { data: existujici } = await supabaseAdmin
       .from('registrace')
-      .insert({
-        kongres_id: parsed.data.kongres_id,
-        jmeno: parsed.data.jmeno,
-        prijmeni: parsed.data.prijmeni,
-        email: parsed.data.email,
-        telefon: parsed.data.telefon ?? null,
-        organizace: parsed.data.organizace ?? null,
-        poznamka: parsed.data.poznamka ?? null,
-        stav: 'cekajici',
-      })
-      .select()
+      .select('id, stav')
+      .eq('kongres_id', parsed.data.kongres_id)
+      .eq('email', parsed.data.email)
       .single()
 
-    if (regError) {
-      if (regError.code === '23505') {
+    let registrace
+
+    if (existujici) {
+      if (existujici.stav === 'zrusena') {
+        // Znovu aktivovat zrusenou registraci
+        const { data: updated, error: updateError } = await supabaseAdmin
+          .from('registrace')
+          .update({
+            jmeno: parsed.data.jmeno,
+            prijmeni: parsed.data.prijmeni,
+            telefon: parsed.data.telefon ?? null,
+            organizace: parsed.data.organizace ?? null,
+            poznamka: parsed.data.poznamka ?? null,
+            stav: 'cekajici',
+          })
+          .eq('id', existujici.id)
+          .select()
+          .single()
+
+        if (updateError) {
+          return NextResponse.json({ error: 'Registraci se nepodarilo obnovit. Zkuste to prosim znovu.' }, { status: 500 })
+        }
+        registrace = updated
+      } else {
+        // Aktivni nebo cekajici registrace — nelze se registrovat znovu
         return NextResponse.json(
           { error: 'Na tento kongres jste jiz zaregistrovani. Kazdy ucastnik se muze registrovat pouze jednou.' },
           { status: 409 }
         )
       }
-      return NextResponse.json({ error: 'Registraci se nepodarilo ulozit. Zkuste to prosim znovu.' }, { status: 500 })
+    } else {
+      // Zadna existujici registrace — vloz novou
+      const { data: inserted, error: regError } = await supabaseAdmin
+        .from('registrace')
+        .insert({
+          kongres_id: parsed.data.kongres_id,
+          jmeno: parsed.data.jmeno,
+          prijmeni: parsed.data.prijmeni,
+          email: parsed.data.email,
+          telefon: parsed.data.telefon ?? null,
+          organizace: parsed.data.organizace ?? null,
+          poznamka: parsed.data.poznamka ?? null,
+          stav: 'cekajici',
+        })
+        .select()
+        .single()
+
+      if (regError) {
+        return NextResponse.json({ error: 'Registraci se nepodarilo ulozit. Zkuste to prosim znovu.' }, { status: 500 })
+      }
+      registrace = inserted
     }
 
+    // Odeslat potvrzovaci email
     poslatPotvrzeniPrijeti({
       email: registrace.email,
       jmeno: registrace.jmeno,
