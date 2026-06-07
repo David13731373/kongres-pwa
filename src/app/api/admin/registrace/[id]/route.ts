@@ -47,7 +47,8 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  const kongresNazev = (registrace.kongresy as { nazev: string } | null)?.nazev ?? 'kongres'
+  const kongresy = registrace.kongresy as unknown as { nazev: string }[] | null
+  const kongresNazev = kongresy?.[0]?.nazev ?? 'kongres'
   const emailParams = {
     email: registrace.email,
     jmeno: registrace.jmeno,
