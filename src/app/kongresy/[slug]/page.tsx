@@ -40,45 +40,97 @@ export default async function KongresDetailPage({ params }: Props) {
 
   const kongres = data as unknown as KongresDetail
 
+  const datumZacatek = new Date(kongres.datum_zacatek).toLocaleDateString('cs-CZ', {
+    day: 'numeric', month: 'long', year: 'numeric'
+  })
+  const datumKonec = kongres.datum_konec
+    ? new Date(kongres.datum_konec).toLocaleDateString('cs-CZ', {
+        day: 'numeric', month: 'long', year: 'numeric'
+      })
+    : null
+
   return (
-    <main className="max-w-3xl mx-auto p-8">
-      <h1 className="text-3xl font-bold text-primary-700 mb-2">{kongres.nazev}</h1>
+    <div className="min-h-screen bg-gray-50">
+      <main className="max-w-2xl mx-auto px-4 py-10">
 
-      <div className="text-gray-500 mb-6">
-        <span>
-          {new Date(kongres.datum_zacatek).toLocaleDateString('cs-CZ')}
-          {kongres.datum_konec && ` – ${new Date(kongres.datum_konec).toLocaleDateString('cs-CZ')}`}
-        </span>
-        {kongres.misto && <span className="ml-4">📍 {kongres.misto}</span>}
-      </div>
-
-      {kongres.popis && (
-        <div className="prose mb-8">
-          <p>{kongres.popis}</p>
-        </div>
-      )}
-
-      {kongres.program && kongres.program.length > 0 && (
-        <section className="mb-10">
-          <h2 className="text-xl font-semibold mb-4">Program</h2>
-          <div className="space-y-3">
-            {kongres.program.map((item) => (
-              <div key={item.id} className="flex gap-4 border-l-4 border-primary-500 pl-4 py-1">
-                <span className="text-gray-400 w-24 shrink-0">{item.cas_od}</span>
-                <div>
-                  <p className="font-medium">{item.nazev}</p>
-                  {item.priznak && <p className="text-gray-500 text-sm">{item.priznak}</p>}
-                </div>
+        {/* Hlavicka kongresu */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-semibold text-gray-900 mb-4">{kongres.nazev}</h1>
+          <div className="flex flex-wrap gap-3">
+            <div className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600">
+              <CalendarIcon />
+              <span>
+                {datumZacatek}
+                {datumKonec && <> &ndash; {datumKonec}</>}
+              </span>
+            </div>
+            {kongres.misto && (
+              <div className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600">
+                <LocationIcon />
+                <span>{kongres.misto}</span>
               </div>
-            ))}
+            )}
           </div>
-        </section>
-      )}
+        </div>
 
-      <section>
-        <h2 className="text-xl font-semibold mb-4">Registrace</h2>
-        <RegistraceFormular kongresId={kongres.id} kongresSlug={slug} />
-      </section>
-    </main>
+        {/* Popis */}
+        {kongres.popis && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+            <p className="text-gray-600 leading-relaxed">{kongres.popis}</p>
+          </div>
+        )}
+
+        {/* Program */}
+        {kongres.program && kongres.program.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-4">Program</h2>
+            <div className="space-y-0">
+              {kongres.program.map((item, idx) => (
+                <div
+                  key={item.id}
+                  className={`flex gap-4 py-3 ${idx < kongres.program.length - 1 ? 'border-b border-gray-100' : ''}`}
+                >
+                  <span className="text-sm text-gray-400 w-16 shrink-0 pt-0.5 font-mono">
+                    {item.cas_od}
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{item.nazev}</p>
+                    {item.priznak && (
+                      <p className="text-xs text-gray-500 mt-0.5">{item.priznak}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Registrace */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="text-base font-semibold text-gray-900 mb-1">Registrace</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            Vyplňte formulář a potvrdíme vám účast emailem.
+          </p>
+          <RegistraceFormular kongresId={kongres.id} kongresSlug={slug} />
+        </div>
+
+      </main>
+    </div>
+  )
+}
+
+function CalendarIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+  )
+}
+
+function LocationIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+    </svg>
   )
 }
